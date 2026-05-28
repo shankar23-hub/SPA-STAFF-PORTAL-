@@ -1,0 +1,22 @@
+MongoDB Atlas added successfully.
+
+Final MONGO_URI used in backend/.env and backend/config.py:
+mongodb+srv://spa_admin:SpaAdmin%402007@cluster0.swvlcma.mongodb.net/spa_admin_db?retryWrites=true&w=majority&appName=Cluster0
+
+Important:
+1. Your password is SpaAdmin@2007.
+2. In a MongoDB URL, @ must be written as %40.
+   Correct: SpaAdmin%402007
+   Wrong:   SpaAdmin@2007
+3. Database name used: spa_admin_db
+
+Vercel Backend Environment Variables:
+MONGO_URI=mongodb+srv://spa_admin:SpaAdmin%402007@cluster0.swvlcma.mongodb.net/spa_admin_db?retryWrites=true&w=majority&appName=Cluster0
+MONGO_DB_NAME=spa_admin_db
+SECRET_KEY=spa-employee-secret-key-2026
+JWT_SECRET_KEY=spa-jwt-secret-2026
+DEBUG=false
+FRONTEND_URL=https://your-frontend-domain.vercel.app
+
+After deployment, test:
+https://your-backend-domain.vercel.app/health
