@@ -45,7 +45,14 @@ def get_allowed_origins() -> list[str]:
     ]
     if Config.FRONTEND_URL:
         origins.append(Config.FRONTEND_URL.rstrip("/"))
-    return origins
+
+    # Allow deployed Vercel frontends
+    origins.extend([
+        "https://spa-admin-portal.vercel.app",
+        "https://spa-employee-portal.vercel.app",
+    ])
+
+    return list(set(origins))
 
 
 def create_app() -> Flask:

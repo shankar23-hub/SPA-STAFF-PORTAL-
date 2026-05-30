@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return {
         ok: false,
         error: `Cannot reach server at ${API}. ` +
-               `Make sure the Employee Portal backend is running on port 5002.`,
+               `Verify that the deployed backend is reachable and Vercel environment variables are configured.`,
       }
     }
   }, [])
