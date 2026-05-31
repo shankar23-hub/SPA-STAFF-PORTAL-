@@ -1,14 +1,14 @@
 import { createContext, useContext, useMemo, useState, useCallback } from 'react'
 
-// IMPORTANT: fallback must match the Employee Portal backend port (5002),
-// not the generic Flask default 5000.
+// Employee Portal backend URL.
+// Set VITE_API_URL in your .env / Vercel env vars.
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5002'
 
 export type Employee = {
-  id: number
+  staffId: string
+  employeeId?: number
   name: string
   email: string
-  empId: string
   department: string
   role: string
   skills: string[]
@@ -18,63 +18,73 @@ export type Employee = {
   experience?: number
   phone?: string
   joinDate?: string
-  approvedCertDocs?: any[]
+  avatar?: string
+  // empId kept for backward compat
+  empId?: string
 }
 
 type AuthContextValue = {
   isAuthenticated: boolean
   employee: Employee | null
   token: string | null
-  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  /**
+   * Login using Staff ID + Password.
+   * staffId example: "SPA10001"
+   * password example: "SPA@10001"
+   */
+  login: (staffId: string, password: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => void
   refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+const TOKEN_KEY = 'spa_emp_token'
+const USER_KEY  = 'spa_emp_user'
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(
-    () => localStorage.getItem('emp_token')
+    () => localStorage.getItem(TOKEN_KEY)
   )
   const [employee, setEmployee] = useState<Employee | null>(() => {
-    try { return JSON.parse(localStorage.getItem('emp_user') || 'null') }
-    catch { return null }
+    try {
+      return JSON.parse(localStorage.getItem(USER_KEY) || 'null')
+    } catch {
+      return null
+    }
   })
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (staffId: string, password: string) => {
     try {
-      const res = await fetch(`${API}/api/employee/auth/login`, {
+      const res = await fetch(`${API}/api/auth/login`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password,
-        }),
+        body:    JSON.stringify({ staffId: staffId.trim(), password }),
       })
 
-      // Try to read JSON even on error responses
       let data: any = {}
       try { data = await res.json() } catch { /* non-JSON body */ }
 
       if (!res.ok) {
         return {
           ok: false,
-          error: data.message
-              || data.error
-              || `Login failed (HTTP ${res.status})`,
+          error:
+            data.message || data.error || `Login failed (HTTP ${res.status})`,
         }
       }
 
-      setToken(data.token)
-      setEmployee(data.employee)
-      localStorage.setItem('emp_token', data.token)
-      localStorage.setItem('emp_user',  JSON.stringify(data.employee))
+      const emp: Employee = data.user || data.employee
+      const tok: string   = data.token
+
+      setToken(tok)
+      setEmployee(emp)
+      localStorage.setItem(TOKEN_KEY, tok)
+      localStorage.setItem(USER_KEY,  JSON.stringify(emp))
       return { ok: true }
-    } catch (err: any) {
+    } catch {
       return {
         ok: false,
-        error: `Cannot reach server at ${API}. ` +
-               `Verify that the deployed backend is reachable and Vercel environment variables are configured.`,
+        error: `Cannot reach server at ${API}. Check that VITE_API_URL is set correctly.`,
       }
     }
   }, [])
@@ -82,22 +92,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setToken(null)
     setEmployee(null)
-    localStorage.removeItem('emp_token')
-    localStorage.removeItem('emp_user')
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
   }, [])
 
   const refreshProfile = useCallback(async () => {
     if (!token) return
     try {
-      const res = await fetch(`${API}/api/employee/auth/me`, {
+      const res = await fetch(`${API}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
         const data = await res.json()
         setEmployee(data)
-        localStorage.setItem('emp_user', JSON.stringify(data))
+        localStorage.setItem(USER_KEY, JSON.stringify(data))
       }
-    } catch { /* offline – keep cached profile */ }
+    } catch {
+      // offline — keep cached profile
+    }
   }, [token])
 
   const isAuthenticated = Boolean(token && employee)

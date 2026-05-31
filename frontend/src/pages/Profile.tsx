@@ -16,32 +16,47 @@ export default function Profile() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  // Fetch from /api/profile (JWT-protected)
   useEffect(() => {
     if (!token) { setLoading(false); return }
-    fetch(`${API}/api/employee/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API}/api/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then(r => r.json())
       .then(d => { setProfile(d); setLoading(false) })
-      .catch(() => { setProfile(employee); setLoading(false) })
+      .catch(() => {
+        // Fallback: try /api/auth/me
+        fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.json())
+          .then(d => { setProfile(d); setLoading(false) })
+          .catch(() => { setProfile(employee); setLoading(false) })
+      })
   }, [token])
 
   const handleRefresh = async () => {
     await refreshProfile()
-    setProfile(JSON.parse(localStorage.getItem('emp_user') || 'null'))
+    setProfile(JSON.parse(localStorage.getItem('spa_emp_user') || 'null'))
     showToast('Profile refreshed!')
   }
 
   const infoFields = profile ? [
-    { label: 'Full Name',    value: profile.name || '—',         icon: <User size={14} />,       color: '#6366f1' },
-    { label: 'Email',        value: profile.email || '—',        icon: <Mail size={14} />,       color: '#38bdf8' },
-    { label: 'Employee ID',  value: profile.empId || '—',        icon: <Hash size={14} />,       color: '#a78bfa' },
-    { label: 'Department',   value: profile.department || '—',   icon: <Building2 size={14} />,  color: '#ff9f43' },
-    { label: 'Role',         value: profile.role || '—',         icon: <Briefcase size={14} />,  color: '#00c896' },
-    { label: 'Availability', value: profile.availability || '—', icon: <Activity size={14} />,   color: '#f87171' },
-    { label: 'Phone',        value: profile.phone || '—',        icon: <Phone size={14} />,      color: '#818cf8' },
-    { label: 'Experience',   value: profile.experience != null ? `${profile.experience} years` : '—', icon: <Calendar size={14} />, color: '#00c896' },
+    { label: 'Full Name',    value: profile.name       || '—', icon: <User size={14} />,       color: '#6366f1' },
+    { label: 'Staff ID',     value: profile.staffId || profile.empId || '—', icon: <Hash size={14} />, color: '#a78bfa' },
+    { label: 'Email',        value: profile.email      || '—', icon: <Mail size={14} />,       color: '#38bdf8' },
+    { label: 'Department',   value: profile.department || '—', icon: <Building2 size={14} />,  color: '#ff9f43' },
+    { label: 'Role',         value: profile.role       || '—', icon: <Briefcase size={14} />,  color: '#00c896' },
+    { label: 'Availability', value: profile.availability || '—', icon: <Activity size={14} />, color: '#f87171' },
+    { label: 'Phone',        value: profile.phone      || '—', icon: <Phone size={14} />,      color: '#818cf8' },
+    {
+      label: 'Experience',
+      value: profile.experience != null ? `${profile.experience} years` : '—',
+      icon: <Calendar size={14} />,
+      color: '#00c896',
+    },
   ] : []
 
-  const initials = profile?.name?.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || 'EE'
+  const initials = profile?.name
+    ?.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || 'EE'
 
   return (
     <AppShell title="My Profile" subtitle="View your personal and professional details">
@@ -64,11 +79,8 @@ export default function Profile() {
             border: '1px solid rgba(99,102,241,0.2)',
             background: 'linear-gradient(135deg, rgba(79,70,229,0.15) 0%, rgba(124,58,237,0.08) 60%, transparent 100%)',
             padding: '28px 30px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 22,
-            position: 'relative',
-            overflow: 'hidden',
+            display: 'flex', alignItems: 'center', gap: 22,
+            position: 'relative', overflow: 'hidden',
           }}>
             <div style={{
               position: 'absolute', right: -50, top: -60,
@@ -110,7 +122,9 @@ export default function Profile() {
                   padding: '4px 12px', borderRadius: 20,
                   background: 'rgba(129,140,248,0.12)', color: '#818cf8',
                   fontSize: 12, fontWeight: 600,
-                }}>{profile?.empId}</span>
+                }}>
+                  {profile?.staffId || profile?.empId}
+                </span>
               </div>
             </div>
 
@@ -128,16 +142,12 @@ export default function Profile() {
                   padding: '13px 14px',
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: 12,
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 10,
+                  borderRadius: 12, display: 'flex', alignItems: 'flex-start', gap: 10,
                 }}>
                   <div style={{
                     width: 30, height: 30, borderRadius: 8,
                     background: `${f.color}1a`, color: f.color,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   }}>{f.icon}</div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>
@@ -150,10 +160,8 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Skills + Certs in 2 cols */}
+          {/* Skills + Certs */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-            {/* Skills */}
             <div className="card card-lg">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <span style={{ fontSize: 15 }}>🧠</span>
@@ -180,7 +188,6 @@ export default function Profile() {
               </p>
             </div>
 
-            {/* Certifications */}
             <div className="card card-lg">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <span style={{ fontSize: 15 }}>🎓</span>
@@ -206,8 +213,7 @@ export default function Profile() {
           </div>
 
           <div style={{
-            padding: '12px 16px',
-            borderRadius: 10,
+            padding: '12px 16px', borderRadius: 10,
             background: 'rgba(99,102,241,0.06)',
             border: '1px solid rgba(99,102,241,0.12)',
             fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center',

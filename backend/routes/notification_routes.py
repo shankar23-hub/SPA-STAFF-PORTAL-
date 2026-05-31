@@ -1,9 +1,12 @@
 """
-notification_routes.py – Read & mark-read endpoints for the
-                         notifications collection (shared with Admin Portal).
+notification_routes.py – Read & mark-read endpoints for the notifications collection.
+
+FIX: mark_read now accepts Authorization header (JWT) for consistency.
 """
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
 from database import get_db
 
 notification_bp = Blueprint(

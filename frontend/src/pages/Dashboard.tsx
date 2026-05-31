@@ -1,9 +1,32 @@
+import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import { useAuth } from '@/context/AuthContext'
-import { TrendingUp, Briefcase, Award, Brain, Calendar, Clock } from 'lucide-react'
+import { TrendingUp, Briefcase, Award, Brain, Calendar, Clock, Bell } from 'lucide-react'
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5002'
 
 export default function Dashboard() {
-  const { employee } = useAuth()
+  const { employee, token } = useAuth()
+  const [dashData, setDashData] = useState<{
+    announcements: any[]
+    notifications: any[]
+    tasks: any[]
+  }>({ announcements: [], notifications: [], tasks: [] })
+  const [loadingDash, setLoadingDash] = useState(true)
+
+  // Fetch dashboard data from API
+  useEffect(() => {
+    if (!token) { setLoadingDash(false); return }
+    fetch(`${API}/api/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => setDashData(d))
+      .catch(() => {
+        // API not reachable — keep empty arrays
+      })
+      .finally(() => setLoadingDash(false))
+  }, [token])
 
   const stats = [
     {
@@ -36,23 +59,29 @@ export default function Dashboard() {
     },
   ]
 
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
-
-  const activity = [
-    { time: '09:00 AM', event: 'Logged in to Employee Portal', type: 'login' },
-    { time: '10:30 AM', event: 'Certificate submission reviewed', type: 'cert' },
-    { time: '12:00 PM', event: 'Project status updated', type: 'project' },
-    { time: '02:15 PM', event: 'Inbox message from HR Department', type: 'inbox' },
-    { time: '04:00 PM', event: 'Profile refreshed by Admin', type: 'profile' },
-  ]
+  const today = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+  })
 
   const activityColor: Record<string, string> = {
-    login: '#6366f1',
-    cert: '#ff9f43',
-    project: '#00c896',
-    inbox: '#38bdf8',
-    profile: '#a78bfa',
+    login: '#6366f1', cert: '#ff9f43', project: '#00c896',
+    inbox: '#38bdf8', profile: '#a78bfa', Allocation: '#e63946',
   }
+
+  // Combine API notifications with default activity entries
+  const activityItems = dashData.notifications.length > 0
+    ? dashData.notifications.slice(0, 5).map((n: any) => ({
+        time: n.sentAt ? new Date(n.sentAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+        event: n.message || `Project: ${n.projectName}`,
+        type: 'Allocation',
+      }))
+    : [
+        { time: '09:00 AM', event: 'Logged in to Employee Portal', type: 'login' },
+        { time: '10:30 AM', event: 'Certificate submission reviewed', type: 'cert' },
+        { time: '12:00 PM', event: 'Project status updated', type: 'project' },
+        { time: '02:15 PM', event: 'Inbox message from HR Department', type: 'inbox' },
+        { time: '04:00 PM', event: 'Profile refreshed by Admin', type: 'profile' },
+      ]
 
   return (
     <AppShell title="Dashboard" subtitle={today}>
@@ -64,13 +93,9 @@ export default function Dashboard() {
           border: '1px solid rgba(99,102,241,0.2)',
           background: 'linear-gradient(135deg, rgba(79,70,229,0.18) 0%, rgba(124,58,237,0.1) 60%, transparent 100%)',
           padding: '22px 26px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 18,
-          position: 'relative',
-          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', gap: 18,
+          position: 'relative', overflow: 'hidden',
         }}>
-          {/* Decorative circle */}
           <div style={{
             position: 'absolute', right: -30, top: -40,
             width: 180, height: 180, borderRadius: '50%',
@@ -96,7 +121,7 @@ export default function Dashboard() {
               Welcome back, {employee?.name?.split(' ')[0] || 'Employee'}! 👋
             </h1>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 10 }}>
-              {employee?.role} · {employee?.empId}
+              {employee?.role} · {employee?.staffId || employee?.empId}
             </p>
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -139,7 +164,28 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Middle row: Skills + Activity */}
+        {/* Announcements (from API) */}
+        {dashData.announcements.length > 0 && (
+          <div className="card card-lg">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Bell size={16} style={{ color: '#38bdf8' }} />
+              <h2 style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Announcements</h2>
+            </div>
+            {dashData.announcements.map((a: any, i: number) => (
+              <div key={i} style={{
+                padding: '12px 14px', borderRadius: 10, marginBottom: 8,
+                background: 'rgba(56,189,248,0.06)',
+                border: '1px solid rgba(56,189,248,0.12)',
+                fontSize: 13, color: 'rgba(255,255,255,0.75)',
+              }}>
+                <strong style={{ color: '#38bdf8' }}>{a.title}</strong>
+                <p style={{ margin: '4px 0 0', fontSize: 12 }}>{a.message}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Skills + Activity */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
           {/* Skills */}
@@ -153,7 +199,6 @@ export default function Dashboard() {
                 padding: '2px 8px', borderRadius: 20,
               }}>{employee?.skills?.length ?? 0}</span>
             </div>
-
             {(employee?.skills?.length ?? 0) > 0 ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {employee!.skills.map(sk => (
@@ -171,20 +216,23 @@ export default function Dashboard() {
           <div className="card card-lg">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <Clock size={16} style={{ color: '#38bdf8' }} />
-              <h2 style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Today's Activity</h2>
+              <h2 style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
+                {dashData.notifications.length > 0 ? 'Recent Notifications' : "Today's Activity"}
+              </h2>
             </div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {activity.map((item, i) => (
+              {activityItems.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                   <div style={{
                     width: 8, height: 8, borderRadius: '50%', marginTop: 5,
-                    background: activityColor[item.type], flexShrink: 0,
-                    boxShadow: `0 0 6px ${activityColor[item.type]}`,
+                    background: activityColor[item.type] || '#888', flexShrink: 0,
+                    boxShadow: `0 0 6px ${activityColor[item.type] || '#888'}`,
                   }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>{item.event}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{item.time}</div>
+                    {item.time && (
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{item.time}</div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -216,17 +264,14 @@ export default function Dashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           {[
             { label: 'Submit Certificate', desc: 'Upload & get it verified', icon: '🎓', to: '/certifications', color: '#ff9f43' },
-            { label: 'View Projects', desc: 'Track your assigned work', icon: '📁', to: '/projects', color: '#6366f1' },
-            { label: 'Check Inbox', desc: '3 unread messages', icon: '📬', to: '/inbox', color: '#38bdf8' },
+            { label: 'View Projects',      desc: 'Track your assigned work', icon: '📁', to: '/projects',       color: '#6366f1' },
+            { label: 'Check Inbox',        desc: `${dashData.notifications.length || 2} messages`, icon: '📬', to: '/inbox', color: '#38bdf8' },
           ].map(q => (
             <a key={q.label} href={q.to} style={{
-              display: 'block',
-              padding: '16px 18px',
-              borderRadius: 14,
+              display: 'block', padding: '16px 18px', borderRadius: 14,
               background: 'rgba(255,255,255,0.03)',
               border: '1px solid rgba(255,255,255,0.07)',
-              cursor: 'pointer',
-              textDecoration: 'none',
+              cursor: 'pointer', textDecoration: 'none',
               transition: 'border-color 0.2s, background 0.2s',
             }}
               onMouseEnter={e => {
